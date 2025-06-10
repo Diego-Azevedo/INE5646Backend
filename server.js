@@ -12,11 +12,21 @@ app.use(express.json());
 const dbuser = process.env.DB_USER;
 const dbpassword = process.env.DB_PASS;
 
+// Permitir origens específicas de CORS
+const cors = require('cors');
+app.use(cors({
+  origin: ['https://jsonconvert.org', 'https://www.jsonconvert.org'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+
 // conexão com o MongoDB
 mongoose
   .connect(`mongodb+srv://${dbuser}:${dbpassword}@jsonconvertdb.k4m8rb0.mongodb.net/?retryWrites=true&w=majority&appName=jsonConvertDb`)
   .then(() => {
-    app.listen(3000)
+    app.listen(3000, '0.0.0.0', () => {
+      console.log('MongoDB connected port AAAA');
+    });
     console.log('MongoDB connected');
 }).catch((err) => {
   console.error('MongoDB connection error:', err);
