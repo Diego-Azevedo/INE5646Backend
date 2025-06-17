@@ -8,19 +8,19 @@ const jwt = require('jsonwebtoken');
 const app = express();
 app.use(express.json());
 
-// Credenciais do MongoDB
+// Credentials MongoDB
 const dbuser = process.env.DB_USER;
 const dbpassword = process.env.DB_PASS;
 
-// Permitir origens específicas de CORS
+// CORS
 const cors = require('cors');
 app.use(cors({
-  origin: ['https://jsonconvert.org', 'https://www.jsonconvert.org'],
+  origin: ['https://jsonconvert.org', 'https://www.jsonconvert.org', 'http://localhost:9000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 
-// conexão com o MongoDB
+// Connect MongoDB
 mongoose
   .connect(`mongodb+srv://${dbuser}:${dbpassword}@jsonconvertdb.k4m8rb0.mongodb.net/?retryWrites=true&w=majority&appName=jsonConvertDb`)
   .then(() => {
@@ -37,7 +37,6 @@ const User = require('./models/User');
 
 // Open Route - Public Route
 app.get('/', (req, res) => {
-  console.log('chamou');
   res.status(200).json({ message: 'Hello World!' });
 })
 
@@ -45,11 +44,9 @@ app.get('/', (req, res) => {
 app.get('/user/:id', checkToken, async (req, res) => {
   const id = req.params.id;
 
-  // Check if the user exists
-  const user = await User.findById(id, '-password'); // Exclude password from response
-  // console.log('User found:', user);
+  const user = await User.findById(id, '-password');
   if (!user) {
-    return res.status(404).json({ message: 'Usuário não encontrado' });
+    return res.status(404).json({ message: 'User not found' });
   }
 
   res.status(200).json({ user });
@@ -59,13 +56,13 @@ function checkToken(req, res, next) {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader) {
-    return res.status(401).json({ message: 'Acesso negado!' });
+    return res.status(401).json({ message: 'Access denied!' });
   }
 
   const token = authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Token não fornecido!' });
+    return res.status(401).json({ message: 'Token not provided!' });
   }
 
   try {
@@ -74,7 +71,7 @@ function checkToken(req, res, next) {
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(403).json({ message: 'Token inválido!' });
+    return res.status(403).json({ message: 'Invalid token!' });
   }
 }
 
@@ -84,23 +81,21 @@ app.post('/auth/register', async (req, res) => {
   const { name, email, password, confirmpassword } = req.body;
 
   if(!name || !email || !password || !confirmpassword) {
-    return res.status(422).json({ message: 'Preencha todos os campos!' });
+    return res.status(422).json({ message: 'Fill in all fields!' });
   }
 
   if (password !== confirmpassword) {
-    return res.status(422).json({ message: 'As senhas não conferem!' });
+    return res.status(422).json({ message: 'Passwords dont match!' });
   }
 
   const userExists = await User.findOne({ email: email });
   if (userExists) {
-    return res.status(422).json({ message: 'E-mail já cadastrado!' });
+    return res.status(422).json({ message: 'Email already registered!' });
   }
 
-  // Hash the password
   const salt = await bcrypt.genSalt(12);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  // Create user
   const user = new User({
     name,
     email,
@@ -109,10 +104,10 @@ app.post('/auth/register', async (req, res) => {
 
   try {
     await user.save();
-    res.status(201).json({ message: 'Usuário criado com sucesso!' });
+    res.status(201).json({ message: 'Create user successfully!' });
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Erro ao criar usuário.' });
+    res.status(500).json({ message: 'Create user error.' });
   }
 })
 
@@ -121,20 +116,19 @@ app.post('/auth/login', async (req, res) => {
   const { email, password } = req.body;
   
   if (!email || !password) {
-    return res.status(422).json({ message: 'O nome e a senha são obrigatórios!' });
+    return res.status(422).json({ message: 'Name and password are required!' });
   }
 
   const user = await User.findOne({ email: email });
   if (!user) {
     console.log('Usuário não encontrado');
-    return res.status(404).json({ message: 'Usuário não encontrado' });
+    return res.status(404).json({ message: 'User not found' });
   }
 
-  // checkpassword
   const checkPassword = await bcrypt.compare(password, user.password);
   if (!checkPassword) {
     console.log('Senha inválida');
-    return res.status(422).json({ message: 'Senha inválida' });
+    return res.status(422).json({ message: 'Invalid password' });
   }
 
   try {
@@ -146,10 +140,80 @@ app.post('/auth/login', async (req, res) => {
       secret,
     );
     console.log('Usuário logado com sucesso');
-    return res.status(200).json({ message: 'Usuário logado com sucesso', token });
+    return res.status(200).json({ message: 'User logged in successfully', token, userId: user._id });
 
   } catch(error) {
     console.error('Error during login:', error);
-    return res.status(500).json({ message: 'Erro ao fazer login.' });
+    return res.status(500).json({ message: 'Error when logging in.' });
   }
 })
+
+// Update user route
+app.put('/user/:id', checkToken, async (req, res) => {
+  const { name, email } = req.body;
+  const { id } = req.params;
+
+  if (!name || !email) {
+    return res.status(422).json({ message: 'Name and email are required.' });
+  }
+
+  try {
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const userEmail = await User.findOne({ email: email });
+
+    if (userEmail && userEmail._id.toString() !== id) {
+      console.log('Email já cadastrado em outro usuário');
+      return res.status(422).json({ message: 'Email already registered, use another.' });
+    }
+
+    user.name = name;
+    user.email = email;
+    await user.save();
+
+    console.log('Update successful:', user, email);
+    return res.status(200).json({ message: 'Data updated successfully!' });
+
+  } catch (error) {
+    console.error('Erro ao atualizar dados:', error);
+    return res.status(500).json({ message: 'Data update error.' });
+  }
+});
+
+// Update password route
+app.put('/user/:id/password', checkToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const { id } = req.params;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(422).json({ message: 'Current password and new password are required.' });
+  }
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const checkPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!checkPassword) {
+      return res.status(422).json({ message: 'Invalid current password.' });
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    user.password = passwordHash;
+    await user.save();
+
+    return res.status(200).json({ message: 'Password update successfully!' });
+
+  } catch (error) {
+    console.error('Erro ao atualizar senha:', error);
+    return res.status(500).json({ message: 'Update password error.' });
+  }
+});
