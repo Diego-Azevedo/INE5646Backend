@@ -25,7 +25,7 @@ mongoose
   .connect(`mongodb+srv://${dbuser}:${dbpassword}@jsonconvertdb.k4m8rb0.mongodb.net/?retryWrites=true&w=majority&appName=jsonConvertDb`)
   .then(() => {
     app.listen(3000, '0.0.0.0', () => {
-      console.log('MongoDB connected port AAAA');
+      console.log('MongoDB connected port 3000');
     });
     console.log('MongoDB connected');
 }).catch((err) => {
@@ -62,6 +62,7 @@ function checkToken(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   if (!token) {
+    console.error('Token not provided on private route');
     return res.status(401).json({ message: 'Token not provided!' });
   }
 
@@ -89,6 +90,11 @@ app.post('/auth/register', async (req, res) => {
   }
 
   const userExists = await User.findOne({ email: email });
+
+  if (userExists && userExists.active === false) {
+    return res.status(422).json({ message: 'You cant use this email. Use another!' });
+  }
+
   if (userExists) {
     return res.status(422).json({ message: 'Email already registered!' });
   }
@@ -120,14 +126,15 @@ app.post('/auth/login', async (req, res) => {
   }
 
   const user = await User.findOne({ email: email });
-  if (!user) {
-    console.log('Usuário não encontrado');
+
+  if (!user || user.active === false) {
+    console.log('User not found -> ', email);
     return res.status(404).json({ message: 'User not found' });
   }
 
   const checkPassword = await bcrypt.compare(password, user.password);
   if (!checkPassword) {
-    console.log('Senha inválida');
+    console.log('Invalid password -> ', email);
     return res.status(422).json({ message: 'Invalid password' });
   }
 
@@ -139,7 +146,7 @@ app.post('/auth/login', async (req, res) => {
       },
       secret,
     );
-    console.log('Usuário logado com sucesso');
+    console.log('User logged in successfully -> ', email);
     return res.status(200).json({ message: 'User logged in successfully', token, userId: user._id });
 
   } catch(error) {
@@ -167,7 +174,7 @@ app.put('/user/:id', checkToken, async (req, res) => {
     const userEmail = await User.findOne({ email: email });
 
     if (userEmail && userEmail._id.toString() !== id) {
-      console.log('Email já cadastrado em outro usuário');
+      console.log('Email already registered, use another');
       return res.status(422).json({ message: 'Email already registered, use another.' });
     }
 
@@ -175,11 +182,11 @@ app.put('/user/:id', checkToken, async (req, res) => {
     user.email = email;
     await user.save();
 
-    console.log('Update successful:', user, email);
+    console.log('Update successful -> ', user, email);
     return res.status(200).json({ message: 'Data updated successfully!' });
 
   } catch (error) {
-    console.error('Erro ao atualizar dados:', error);
+    console.error('Data update error', error);
     return res.status(500).json({ message: 'Data update error.' });
   }
 });
@@ -213,7 +220,30 @@ app.put('/user/:id/password', checkToken, async (req, res) => {
     return res.status(200).json({ message: 'Password update successfully!' });
 
   } catch (error) {
-    console.error('Erro ao atualizar senha:', error);
+    console.error('Update password error:', error);
     return res.status(500).json({ message: 'Update password error.' });
+  }
+});
+
+// Soft delete user route
+app.delete('/user/:id', checkToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.active = false;
+    await user.save();
+
+    console.error('User deactivated (soft delete) successfully -> ', user.email);
+    return res.status(200).json({ message: 'Deleted user successfully.' });
+
+  } catch (error) {
+    console.error('Error soft deleting user:', error);
+    return res.status(500).json({ message: 'Soft delete user error.' });
   }
 });
