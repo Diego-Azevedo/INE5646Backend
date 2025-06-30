@@ -9,7 +9,7 @@ const userRoutes = require('./routes/userRoutes');
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: ['https://jsonconvert.org', 'https://www.jsonconvert.org', 'http://localhost:9000', 'websocket.bruno.g.alvez.vms.ufsc.br'],
+  origin: ['https://jsonconvert.org', 'https://www.jsonconvert.org', 'http://localhost:9000', 'https://websocket.bruno.g.alvez.vms.ufsc.br', 'http://websocket.bruno.g.alvez.vms.ufsc.br'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
