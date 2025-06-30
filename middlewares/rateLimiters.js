@@ -20,7 +20,7 @@ const rateLimit = require('express-rate-limit');
 // Limit for login route:
 const loginUpdateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: {
     status: 429,
     message: 'Too many login or update attempts. Try again later.',
@@ -38,7 +38,7 @@ const loginUpdateLimiter = rateLimit({
 // Limit for register route:
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 2,
+  max: 5,
   message: {
     status: 429,
     message: 'Too many register attempts. Try again later',
